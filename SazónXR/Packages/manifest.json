@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.meta.xr.sdk.all": "76.0.0",
     "com.meta.xr.sdk.core": "76.0.0",
     "com.meta.xr.sdk.voice": "76.0.0",
     "com.unity.ai.navigation": "2.0.7",
