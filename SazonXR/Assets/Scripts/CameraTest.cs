@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.UI;
@@ -6,28 +7,28 @@ using Uralstech.UXR.QuestCamera;
 
 public class CameraTest : MonoBehaviour
 {
-    [SerializeField] private RawImage rawImage;
+     [Header("UI (Optional)")]
+    [SerializeField] private RawImage previewImage;
 
     private CameraDevice camera;
-    private CaptureSessionObject<ContinuousCaptureSession> sessionObject;
-    private bool isCapturing = false;
+    private CaptureSessionObject<ContinuousCaptureSession> session;
+    private bool isInitialized = false;
 
     private void Update()
     {
-        // Detectar si se presiona el botón A del control derecho
-        if (!isCapturing && OVRInput.GetDown(OVRInput.RawButton.A))
+        if (isInitialized && OVRInput.GetDown(OVRInput.RawButton.A))
         {
-            Debug.Log("[CameraButtonTrigger] A button pressed – starting capture.");
-            isCapturing = true;
-            StartCoroutine(InitializeCameraAndCapture());
+            StartCoroutine(DelayedCapture());
         }
     }
 
-    private IEnumerator InitializeCameraAndCapture()
+    private IEnumerator Start()
     {
+        yield return new WaitForSeconds(1f);
+
         if (!CameraSupport.IsSupported)
         {
-            Debug.LogError("Device does not support the Passthrough Camera API!");
+            Debug.LogError("Passthrough Camera API not supported!");
             yield break;
         }
 
@@ -37,45 +38,99 @@ public class CameraTest : MonoBehaviour
             yield break;
         }
 
-        CameraInfo currentCamera = UCameraManager.Instance.GetCamera(CameraInfo.CameraEye.Left);
-
-        Resolution highestResolution = currentCamera.SupportedResolutions[0];
-        foreach (Resolution resolution in currentCamera.SupportedResolutions)
+        while (UCameraManager.Instance == null)
         {
-            if (resolution.width * resolution.height > highestResolution.width * highestResolution.height)
-                highestResolution = resolution;
+            Debug.Log("Waiting for UCameraManager...");
+            yield return null;
         }
 
-        camera = UCameraManager.Instance.OpenCamera(currentCamera);
+        CameraInfo camInfo = UCameraManager.Instance.GetCamera(CameraInfo.CameraEye.Left);
+        if (camInfo == null || camInfo.SupportedResolutions.Length == 0)
+        {
+            Debug.LogError("No camera info or resolutions found.");
+            yield break;
+        }
+
+        Resolution res = camInfo.SupportedResolutions[0];
+        foreach (Resolution r in camInfo.SupportedResolutions)
+        {
+            if (r.width * r.height > res.width * res.height)
+                res = r;
+        }
+
+        camera = UCameraManager.Instance.OpenCamera(camInfo);
         yield return camera.WaitForInitialization();
 
         if (camera.CurrentState != NativeWrapperState.Opened)
         {
-            Debug.LogError("Could not open camera!");
+            Debug.LogError("Could not open camera.");
             camera.Destroy();
             yield break;
         }
 
-        sessionObject = camera.CreateContinuousCaptureSession(highestResolution);
-        yield return sessionObject.CaptureSession.WaitForInitialization();
+        session = camera.CreateContinuousCaptureSession(res);
+        yield return session.CaptureSession.WaitForInitialization();
 
-        if (sessionObject.CaptureSession.CurrentState != NativeWrapperState.Opened)
+        if (session.CaptureSession.CurrentState != NativeWrapperState.Opened)
         {
-            Debug.LogError("Could not open camera session!");
-            sessionObject.Destroy();
+            Debug.LogError("Could not start capture session.");
+            session.Destroy();
             camera.Destroy();
             yield break;
         }
 
-        if (rawImage != null)
-            rawImage.texture = sessionObject.TextureConverter.FrameRenderTexture;
+        if (previewImage != null)
+            previewImage.texture = session.TextureConverter.FrameRenderTexture;
 
-        Debug.Log("[CameraButtonTrigger] Image capture started and displaying.");
+        isInitialized = true;
+        Debug.Log("✅ Camera session initialized.");
+    }
+
+    private IEnumerator DelayedCapture()
+    {
+        Debug.Log("⏳ Waiting 0.2s before capturing...");
+        yield return new WaitForSeconds(0.2f);
+
+        string path = SaveRenderTextureToPNG(session.TextureConverter.FrameRenderTexture);
+        if (!string.IsNullOrEmpty(path))
+        {
+            GeminiFileChatManager.Instance.SendImageToGemini(path, "What ingredients are in this image?");
+        }
+        else
+        {
+            Debug.LogError("Image path is null or image invalid.");
+        }
+    }
+
+    private string SaveRenderTextureToPNG(RenderTexture rt)
+    {
+        RenderTexture currentRT = RenderTexture.active;
+        RenderTexture.active = rt;
+
+        Texture2D tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+        tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+        tex.Apply();
+
+        RenderTexture.active = currentRT;
+
+        byte[] imageBytes = tex.EncodeToPNG();
+        Destroy(tex);
+
+        if (imageBytes == null || imageBytes.Length == 0)
+        {
+            Debug.LogError("Image bytes are empty!");
+            return null;
+        }
+
+        string path = Path.Combine(Application.persistentDataPath, "captured_image.png");
+        File.WriteAllBytes(path, imageBytes);
+        Debug.Log($"📸 Image saved to: {path} ({imageBytes.Length} bytes)");
+        return path;
     }
 
     private void OnDestroy()
     {
-        sessionObject?.Destroy();
+        session?.Destroy();
         camera?.Destroy();
     }
 }
