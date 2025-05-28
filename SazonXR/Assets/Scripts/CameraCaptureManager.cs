@@ -5,7 +5,7 @@ using UnityEngine.Android;
 using UnityEngine.UI;
 using Uralstech.UXR.QuestCamera;
 
-public class CameraTest : MonoBehaviour
+public class CameraCaptureManager : MonoBehaviour
 {
      [Header("UI (Optional)")]
     [SerializeField] private RawImage previewImage;
