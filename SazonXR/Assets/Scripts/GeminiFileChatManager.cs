@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -20,16 +21,16 @@ public class GeminiFileChatManager : MonoBehaviour
 
     public async void SendImageToGemini(string imagePath, string userPrompt)
     {
-        Debug.Log($" Sending image to Gemini: {imagePath}");
+        Debug.Log($"Sending image to Gemini: {imagePath}");
 
         if (!File.Exists(imagePath))
         {
-            Debug.LogError(" File does not exist: " + imagePath);
+            Debug.LogError("File does not exist: " + imagePath);
             return;
         }
 
         byte[] imageBytes = File.ReadAllBytes(imagePath);
-        string base64Data = System.Convert.ToBase64String(imageBytes);
+        string base64Data = Convert.ToBase64String(imageBytes);
 
         var content = new GeminiContent()
         {
@@ -55,34 +56,68 @@ public class GeminiFileChatManager : MonoBehaviour
         GeminiChatResponse response = await GeminiManager.Instance.Request<GeminiChatResponse>(request);
         string reply = response?.Parts[0].Text;
 
-        Debug.Log(" Gemini Response:\n" + reply);
-        
-        if (!string.IsNullOrEmpty(reply))
+        Debug.Log("Gemini Response:\n" + reply);
+
+        List<string> ingredients = ExtractIngredientsFromGeminiResponse(reply);
+        if (ingredients.Count > 0)
         {
-            string cleanedReply = reply.Trim();
-
-            cleanedReply = Regex.Replace(cleanedReply, @"^[`´]{3}|[`´]{3}$", ""); // Remueve ```, ´´´ al inicio y al final
-            cleanedReply = cleanedReply.Trim('\"'); // Por si acaso lo envolvió en comillas
-
-            try
+            Debug.Log("✅ Extracted ingredients:");
+            foreach (string ingredient in ingredients)
             {
-                var ingredients = JsonConvert.DeserializeObject<List<string>>(cleanedReply);
-                Debug.Log("Ingredientes parseados:");
-                foreach (var ing in ingredients)
-                    Debug.Log("- " + ing);
+                Debug.Log($"- {ingredient}");
+            }
 
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError("No se pudo parsear como JSON: " + ex.Message + "\nTexto: " + cleanedReply);
-            }
+            // Aquí puedes hacer la llamada a la API con la lista:
+            // CallRecipeAPI(ingredients);
         }
+        else
+        {
+            Debug.LogWarning("No ingredients could be parsed from the response.");
+        }
+    }
 
+    private List<string> ExtractIngredientsFromGeminiResponse(string rawResponse)
+    {
+        try
+        {
+            string cleanJson = rawResponse;
 
+            // Intenta extraer contenido entre ```json ... ```
+            Match match = Regex.Match(rawResponse, @"```json\s*(.*?)\s*```", RegexOptions.Singleline);
+            if (match.Success)
+            {
+                cleanJson = match.Groups[1].Value.Trim();
+            }
+
+            // Reemplazar comillas especiales por comillas estándar
+            cleanJson = cleanJson.Replace("“", "\"").Replace("”", "\"");
+
+            return JsonUtilityWrapper.FromJsonArray(cleanJson);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"No se pudo parsear la respuesta de Gemini: {ex.Message}");
+            return new List<string>();
+        }
     }
 
     private string GetPromptWithJSONInstructions(string prompt)
     {
         return $"{prompt}\n\nReturn ONLY a valid JSON array of strings with the detected ingredients. Do not include any explanation or formatting. Example: [\"tomato\", \"carrot\", \"onion\"]";
+    }
+}
+
+public static class JsonUtilityWrapper
+{
+    [Serializable]
+    private class Wrapper
+    {
+        public List<string> list;
+    }
+
+    public static List<string> FromJsonArray(string json)
+    {
+        string wrappedJson = $"{{\"list\":{json}}}";
+        return JsonUtility.FromJson<Wrapper>(wrappedJson)?.list ?? new List<string>();
     }
 }
