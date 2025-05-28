@@ -13,6 +13,8 @@ public class GeminiFileChatManager : MonoBehaviour
 {
     public static GeminiFileChatManager Instance;
 
+    [SerializeField] private SpoonacularRecipeFetcher spoonacularFetcher; 
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -61,14 +63,12 @@ public class GeminiFileChatManager : MonoBehaviour
         List<string> ingredients = ExtractIngredientsFromGeminiResponse(reply);
         if (ingredients.Count > 0)
         {
-            Debug.Log("✅ Extracted ingredients:");
+            Debug.Log("Extracted ingredients:");
             foreach (string ingredient in ingredients)
-            {
                 Debug.Log($"- {ingredient}");
-            }
 
-            // Aquí puedes hacer la llamada a la API con la lista:
-            // CallRecipeAPI(ingredients);
+            // 🔗 Llama automáticamente al API de recetas
+            spoonacularFetcher.GetRecipesFromIngredients(ingredients);
         }
         else
         {
@@ -81,15 +81,10 @@ public class GeminiFileChatManager : MonoBehaviour
         try
         {
             string cleanJson = rawResponse;
-
-            // Intenta extraer contenido entre ```json ... ```
             Match match = Regex.Match(rawResponse, @"```json\s*(.*?)\s*```", RegexOptions.Singleline);
             if (match.Success)
-            {
                 cleanJson = match.Groups[1].Value.Trim();
-            }
 
-            // Reemplazar comillas especiales por comillas estándar
             cleanJson = cleanJson.Replace("“", "\"").Replace("”", "\"");
 
             return JsonUtilityWrapper.FromJsonArray(cleanJson);
