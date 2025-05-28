@@ -83,12 +83,12 @@ public class CameraTest : MonoBehaviour
             previewImage.texture = session.TextureConverter.FrameRenderTexture;
 
         isInitialized = true;
-        Debug.Log("✅ Camera session initialized.");
+        Debug.Log("Camera session initialized.");
     }
 
     private IEnumerator DelayedCapture()
     {
-        Debug.Log("⏳ Waiting 0.2s before capturing...");
+        Debug.Log("Waiting 0.2s before capturing...");
         yield return new WaitForSeconds(0.2f);
 
         string path = SaveRenderTextureToPNG(session.TextureConverter.FrameRenderTexture);
@@ -124,7 +124,7 @@ public class CameraTest : MonoBehaviour
 
         string path = Path.Combine(Application.persistentDataPath, "captured_image.png");
         File.WriteAllBytes(path, imageBytes);
-        Debug.Log($"📸 Image saved to: {path} ({imageBytes.Length} bytes)");
+        Debug.Log($"Image saved to: {path} ({imageBytes.Length} bytes)");
         return path;
     }
 

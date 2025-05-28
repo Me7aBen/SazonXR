@@ -1,84 +1,88 @@
-using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using Uralstech.UGemini;
 using Uralstech.UGemini.Models;
 using Uralstech.UGemini.Models.Content;
 using Uralstech.UGemini.Models.Generation.Chat;
+using Newtonsoft.Json;
 
 public class GeminiFileChatManager : MonoBehaviour
 {
-    public static GeminiFileChatManager Instance { get; private set; }
-
-    [TextArea(2, 4)]
-    public string defaultPrompt = "What is this ingredient?";
+    public static GeminiFileChatManager Instance;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject); // Optional: ensure only one exists
-            return;
-        }
-        Instance = this;
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
-    public async void SendImageToGemini(string path, string userPrompt = null)
+    public async void SendImageToGemini(string imagePath, string userPrompt)
     {
-        if (!File.Exists(path))
+        Debug.Log($" Sending image to Gemini: {imagePath}");
+
+        if (!File.Exists(imagePath))
         {
-            Debug.LogError($"Image file not found at path: {path}");
+            Debug.LogError(" File does not exist: " + imagePath);
             return;
         }
 
-        byte[] imageBytes;
-        try
-        {
-            imageBytes = await File.ReadAllBytesAsync(path);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Failed to read file: {ex.Message}");
-            return;
-        }
+        byte[] imageBytes = File.ReadAllBytes(imagePath);
+        string base64Data = System.Convert.ToBase64String(imageBytes);
 
-        GeminiContent content = new GeminiContent
+        var content = new GeminiContent()
         {
             Parts = new GeminiContentPart[]
             {
-                new GeminiContentPart { Text = userPrompt ?? defaultPrompt },
-                new GeminiContentPart
+                new GeminiContentPart() { Text = GetPromptWithJSONInstructions(userPrompt) },
+                new GeminiContentPart()
                 {
-                    InlineData = new GeminiContentBlob
+                    InlineData = new GeminiContentBlob()
                     {
                         MimeType = GeminiContentType.ImagePNG,
-                        Data = Convert.ToBase64String(imageBytes)
+                        Data = base64Data
                     }
                 }
             }
         };
 
-        var request = new GeminiChatRequest(GeminiModel.Gemini1_5Flash)
+        GeminiChatRequest request = new GeminiChatRequest(GeminiModel.Gemini1_5Flash)
         {
-            Contents = new[] { content }
+            Contents = new GeminiContent[] { content }
         };
 
-        try
+        GeminiChatResponse response = await GeminiManager.Instance.Request<GeminiChatResponse>(request);
+        string reply = response?.Parts[0].Text;
+
+        Debug.Log(" Gemini Response:\n" + reply);
+        
+        if (!string.IsNullOrEmpty(reply))
         {
-            GeminiChatResponse response = await GeminiManager.Instance.Request<GeminiChatResponse>(request);
-            if (response?.Parts?.Length > 0)
+            string cleanedReply = reply.Trim();
+
+            cleanedReply = Regex.Replace(cleanedReply, @"^[`´]{3}|[`´]{3}$", ""); // Remueve ```, ´´´ al inicio y al final
+            cleanedReply = cleanedReply.Trim('\"'); // Por si acaso lo envolvió en comillas
+
+            try
             {
-                Debug.Log($"Gemini Response: {response.Parts[0].Text}");
+                var ingredients = JsonConvert.DeserializeObject<List<string>>(cleanedReply);
+                Debug.Log("Ingredientes parseados:");
+                foreach (var ing in ingredients)
+                    Debug.Log("- " + ing);
+
             }
-            else
+            catch (System.Exception ex)
             {
-                Debug.LogWarning("Empty response from Gemini.");
+                Debug.LogError("No se pudo parsear como JSON: " + ex.Message + "\nTexto: " + cleanedReply);
             }
         }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Gemini API request failed: {ex.Message}");
-        }
+
+
+    }
+
+    private string GetPromptWithJSONInstructions(string prompt)
+    {
+        return $"{prompt}\n\nReturn ONLY a valid JSON array of strings with the detected ingredients. Do not include any explanation or formatting. Example: [\"tomato\", \"carrot\", \"onion\"]";
     }
 }
