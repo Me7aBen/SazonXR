@@ -7,7 +7,7 @@ using Uralstech.UXR.QuestCamera;
 
 public class CameraCaptureManager : MonoBehaviour
 {
-     [Header("UI (Optional)")]
+    [Header("UI (Optional)")]
     [SerializeField] private RawImage previewImage;
 
     private CameraDevice camera;
@@ -92,14 +92,7 @@ public class CameraCaptureManager : MonoBehaviour
         yield return new WaitForSeconds(0.2f);
 
         string path = SaveRenderTextureToPNG(session.TextureConverter.FrameRenderTexture);
-        if (!string.IsNullOrEmpty(path))
-        {
-            GeminiFileChatManager.Instance.SendImageToGemini(path, "What ingredients are in this image?");
-        }
-        else
-        {
-            Debug.LogError("Image path is null or image invalid.");
-        }
+        Debug.Log("Captured via A button to path: " + path);
     }
 
     private string SaveRenderTextureToPNG(RenderTexture rt)
@@ -126,6 +119,17 @@ public class CameraCaptureManager : MonoBehaviour
         File.WriteAllBytes(path, imageBytes);
         Debug.Log($"Image saved to: {path} ({imageBytes.Length} bytes)");
         return path;
+    }
+    
+    public string SaveCurrentCameraFrameToFile()
+    {
+        if (!isInitialized || session == null)
+        {
+            Debug.LogWarning("Camera not initialized or session missing.");
+            return null;
+        }
+
+        return SaveRenderTextureToPNG(session.TextureConverter.FrameRenderTexture);
     }
 
     private void OnDestroy()

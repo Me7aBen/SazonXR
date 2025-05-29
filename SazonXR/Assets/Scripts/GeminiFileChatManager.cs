@@ -21,7 +21,7 @@ public class GeminiFileChatManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    public async void SendImageToGemini(string imagePath, string userPrompt)
+    public async void SendImageToGemini(string imagePath)
     {
         Debug.Log($"Sending image to Gemini: {imagePath}");
 
@@ -38,7 +38,7 @@ public class GeminiFileChatManager : MonoBehaviour
         {
             Parts = new GeminiContentPart[]
             {
-                new GeminiContentPart() { Text = GetPromptWithJSONInstructions(userPrompt) },
+                new GeminiContentPart() { Text = GetPromptWithJSONInstructions() },
                 new GeminiContentPart()
                 {
                     InlineData = new GeminiContentBlob()
@@ -67,7 +67,7 @@ public class GeminiFileChatManager : MonoBehaviour
             foreach (string ingredient in ingredients)
                 Debug.Log($"- {ingredient}");
 
-            // 🔗 Llama automáticamente al API de recetas
+            // 🔗 Llama al API de Spoonacular automáticamente
             spoonacularFetcher.GetRecipesFromIngredients(ingredients);
         }
         else
@@ -91,14 +91,14 @@ public class GeminiFileChatManager : MonoBehaviour
         }
         catch (Exception ex)
         {
-            Debug.LogError($"No se pudo parsear la respuesta de Gemini: {ex.Message}");
+            Debug.LogError($"Failed to parse Gemini response: {ex.Message}");
             return new List<string>();
         }
     }
 
-    private string GetPromptWithJSONInstructions(string prompt)
+    private string GetPromptWithJSONInstructions()
     {
-        return $"{prompt}\n\nReturn ONLY a valid JSON array of strings with the detected ingredients. Do not include any explanation or formatting. Example: [\"tomato\", \"carrot\", \"onion\"]";
+        return "What ingredients are in this image?\n\nReturn ONLY a valid JSON array of strings with the detected ingredients. Do not include any explanation or formatting. Example: [\"tomato\", \"carrot\", \"onion\"]";
     }
 }
 
