@@ -6345,6 +6345,8 @@ MonoBehaviour:
   confirmImagePreview: {fileID: 523720214}
   recipeListContainer: {fileID: 1612668864}
   recipeButtonPrefab: {fileID: 886566632}
+  stepNumberText: {fileID: 1409959626}
+  stepDescriptionText: {fileID: 2042684799}
   cameraCaptureManager: {fileID: 1129307691}
   geminiManager: {fileID: 1129307693}
   recipeFetcher: {fileID: 1129307695}
@@ -14354,6 +14356,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   apiKey: 
+  uiController: {fileID: 0}
 --- !u!1 &1137332454
 GameObject:
   m_ObjectHideFlags: 0

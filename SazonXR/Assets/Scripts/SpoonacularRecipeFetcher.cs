@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using UnityEngine;
+using Newtonsoft.Json;
 
 public class SpoonacularRecipeFetcher : MonoBehaviour
 {
-    [SerializeField] private string apiKey = "YOUR_SPOONACULAR_API_KEY"; 
+    [SerializeField] private string apiKey = "YOUR_SPOONACULAR_API_KEY";
+    [SerializeField] private SazonXRUIController uiController;
 
     public async void GetRecipesFromIngredients(List<string> ingredients)
     {
@@ -32,8 +34,11 @@ public class SpoonacularRecipeFetcher : MonoBehaviour
                 }
 
                 string json = await response.Content.ReadAsStringAsync();
-                Debug.Log("Recipes found:\n" + json);
-                
+                List<RecipeResult> recipes = JsonConvert.DeserializeObject<List<RecipeResult>>(json);
+
+                Debug.Log($"Received {recipes.Count} recipes.");
+                uiController.DisplayRecipes(recipes);
+
             }
             catch (Exception ex)
             {
@@ -41,4 +46,49 @@ public class SpoonacularRecipeFetcher : MonoBehaviour
             }
         }
     }
+    
+    
+    [Serializable]
+    public class RecipeInstruction
+    {
+        public List<RecipeInstructionStep> steps;
+    }
+
+    public async void GetRecipeSteps(int recipeId)
+    {
+        string url = $"https://api.spoonacular.com/recipes/{recipeId}/analyzedInstructions?apiKey={apiKey}";
+
+        using (HttpClient client = new HttpClient())
+        {
+            try
+            {
+                HttpResponseMessage response = await client.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Debug.LogError($"Error fetching steps: {response.StatusCode}");
+                    return;
+                }
+
+                string json = await response.Content.ReadAsStringAsync();
+                var instructions = JsonConvert.DeserializeObject<List<RecipeInstruction>>(json);
+
+                if (instructions == null || instructions.Count == 0 || instructions[0].steps.Count == 0)
+                {
+                    Debug.LogWarning("No steps found for this recipe.");
+                    return;
+                }
+
+                uiController.LoadRecipeSteps(instructions[0].steps); // ← pasa a UI
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("Exception fetching recipe steps: " + ex.Message);
+            }
+        }
+    }
+    
+    
+    
 }
+
+

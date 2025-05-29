@@ -1,4 +1,6 @@
+
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,6 +29,10 @@ public class SazonXRUIController : MonoBehaviour
     public Transform recipeListContainer;
     public GameObject recipeButtonPrefab;
 
+    [Header("Step UI")]
+    public TextMeshProUGUI stepNumberText;
+    public TextMeshProUGUI stepDescriptionText;
+
     [Header("Dependencies")]
     public CameraCaptureManager cameraCaptureManager;
     public GeminiFileChatManager geminiManager;
@@ -34,15 +40,19 @@ public class SazonXRUIController : MonoBehaviour
 
     private string lastImagePath;
 
+    private List<string> currentSteps;
+    private int currentStepIndex = 0;
+
     private void Start()
     {
         // Navigation buttons
         startButton.onClick.AddListener(() => ShowPanel(instructionsPanel));
         captureButton.onClick.AddListener(CaptureImage);
         usePhotoButton.onClick.AddListener(SendImageToGemini);
-
         instructionsBackButton.onClick.AddListener(() => ShowPanel(splashPanel));
         confirmBackButton.onClick.AddListener(() => ShowPanel(instructionsPanel));
+        recipeNextStepButton.onClick.AddListener(NextStep);
+        recipePreviousStepButton.onClick.AddListener(PreviousStep);
 
         // Start in splash screen
         ShowPanel(splashPanel);
@@ -84,24 +94,76 @@ public class SazonXRUIController : MonoBehaviour
             return;
         }
 
-        // Delegates responsibility to GeminiFileChatManager
         geminiManager.SendImageToGemini(lastImagePath);
         ShowPanel(recipeListPanel); // We could delay this until recipes arrive
     }
 
-    public void ShowStepPanel()
+    public void DisplaySteps(List<string> steps)
     {
+        currentSteps = steps;
+        currentStepIndex = 0;
+        UpdateStepUI();
         ShowPanel(stepPanel);
     }
 
-    public void ShowRecipeListPanel()
+    private void UpdateStepUI()
     {
+        if (currentSteps == null || currentSteps.Count == 0) return;
+
+        stepNumberText.text = $"Step {currentStepIndex + 1}";
+        stepDescriptionText.text = currentSteps[currentStepIndex];
+    }
+
+    private void NextStep()
+    {
+        if (currentStepIndex < currentSteps.Count - 1)
+        {
+            currentStepIndex++;
+            UpdateStepUI();
+        }
+    }
+
+    private void PreviousStep()
+    {
+        if (currentStepIndex > 0)
+        {
+            currentStepIndex--;
+            UpdateStepUI();
+        }
+    }
+    
+    public void DisplayRecipes(List<RecipeResult> recipes)
+    {
+        foreach (Transform child in recipeListContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        foreach (var recipe in recipes)
+        {
+            GameObject buttonObj = Instantiate(recipeButtonPrefab, recipeListContainer);
+            Text buttonText = buttonObj.GetComponentInChildren<Text>();
+            buttonText.text = recipe.title;
+
+            Button button = buttonObj.GetComponent<Button>();
+            int recipeId = recipe.id;
+            button.onClick.AddListener(() => recipeFetcher.GetRecipeSteps(recipeId));
+        }
+
         ShowPanel(recipeListPanel);
     }
 
-    public void ShowConfirmPanel(Texture2D image)
+    public void LoadRecipeSteps(List<RecipeInstructionStep> steps)
     {
-        confirmImagePreview.texture = image;
-        ShowPanel(confirmPanel);
+        currentSteps = new List<string>();
+        foreach (var step in steps)
+        {
+            currentSteps.Add(step.step);
+        }
+
+        currentStepIndex = 0;
+        UpdateStepUI();
+        ShowPanel(stepPanel);
     }
+    
 }
