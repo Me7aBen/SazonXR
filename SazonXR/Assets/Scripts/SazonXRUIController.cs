@@ -1,4 +1,3 @@
-
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -19,6 +18,9 @@ public class SazonXRUIController : MonoBehaviour
     public Button usePhotoButton;
     public Button recipeNextStepButton;
     public Button recipePreviousStepButton;
+    public Button stepBackToRecipesLeft;
+    public Button stepBackToRecipesRight;
+    public Button recipeListRestartButton;
 
     [Header("Back Buttons")]
     public Button instructionsBackButton;
@@ -39,13 +41,11 @@ public class SazonXRUIController : MonoBehaviour
     public SpoonacularRecipeFetcher recipeFetcher;
 
     private string lastImagePath;
-
     private List<string> currentSteps;
     private int currentStepIndex = 0;
 
     private void Start()
     {
-        // Navigation buttons
         startButton.onClick.AddListener(() => ShowPanel(instructionsPanel));
         captureButton.onClick.AddListener(CaptureImage);
         usePhotoButton.onClick.AddListener(SendImageToGemini);
@@ -53,8 +53,10 @@ public class SazonXRUIController : MonoBehaviour
         confirmBackButton.onClick.AddListener(() => ShowPanel(instructionsPanel));
         recipeNextStepButton.onClick.AddListener(NextStep);
         recipePreviousStepButton.onClick.AddListener(PreviousStep);
+        stepBackToRecipesLeft.onClick.AddListener(() => ShowPanel(recipeListPanel));
+        stepBackToRecipesRight.onClick.AddListener(() => ShowPanel(recipeListPanel));
+        recipeListRestartButton.onClick.AddListener(RestartExperience);
 
-        // Start in splash screen
         ShowPanel(splashPanel);
     }
 
@@ -95,43 +97,9 @@ public class SazonXRUIController : MonoBehaviour
         }
 
         geminiManager.SendImageToGemini(lastImagePath);
-        ShowPanel(recipeListPanel); // We could delay this until recipes arrive
+        ShowPanel(recipeListPanel);
     }
 
-    public void DisplaySteps(List<string> steps)
-    {
-        currentSteps = steps;
-        currentStepIndex = 0;
-        UpdateStepUI();
-        ShowPanel(stepPanel);
-    }
-
-    private void UpdateStepUI()
-    {
-        if (currentSteps == null || currentSteps.Count == 0) return;
-
-        stepNumberText.text = $"Step {currentStepIndex + 1}";
-        stepDescriptionText.text = currentSteps[currentStepIndex];
-    }
-
-    private void NextStep()
-    {
-        if (currentStepIndex < currentSteps.Count - 1)
-        {
-            currentStepIndex++;
-            UpdateStepUI();
-        }
-    }
-
-    private void PreviousStep()
-    {
-        if (currentStepIndex > 0)
-        {
-            currentStepIndex--;
-            UpdateStepUI();
-        }
-    }
-    
     public void DisplayRecipes(List<RecipeResult> recipes)
     {
         foreach (Transform child in recipeListContainer)
@@ -142,7 +110,7 @@ public class SazonXRUIController : MonoBehaviour
         foreach (var recipe in recipes)
         {
             GameObject buttonObj = Instantiate(recipeButtonPrefab, recipeListContainer);
-            Text buttonText = buttonObj.GetComponentInChildren<Text>();
+            TextMeshProUGUI buttonText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
             buttonText.text = recipe.title;
 
             Button button = buttonObj.GetComponent<Button>();
@@ -165,5 +133,47 @@ public class SazonXRUIController : MonoBehaviour
         UpdateStepUI();
         ShowPanel(stepPanel);
     }
-    
+
+    private void UpdateStepUI()
+    {
+        if (currentSteps == null || currentSteps.Count == 0) return;
+
+        stepNumberText.text = $"{currentStepIndex + 1}";
+        stepDescriptionText.text = currentSteps[currentStepIndex];
+
+        bool isFirst = currentStepIndex == 0;
+        bool isLast = currentStepIndex == currentSteps.Count - 1;
+
+        recipePreviousStepButton.gameObject.SetActive(!isFirst);
+        stepBackToRecipesLeft.gameObject.SetActive(isFirst);
+
+        recipeNextStepButton.gameObject.SetActive(!isLast);
+        stepBackToRecipesRight.gameObject.SetActive(isLast);
+    }
+
+    private void NextStep()
+    {
+        if (currentStepIndex < currentSteps.Count - 1)
+        {
+            currentStepIndex++;
+            UpdateStepUI();
+        }
+    }
+
+    private void PreviousStep()
+    {
+        if (currentStepIndex > 0)
+        {
+            currentStepIndex--;
+            UpdateStepUI();
+        }
+    }
+
+    private void RestartExperience()
+    {
+        lastImagePath = null;
+        currentSteps = null;
+        currentStepIndex = 0;
+        ShowPanel(splashPanel);
+    }
 }

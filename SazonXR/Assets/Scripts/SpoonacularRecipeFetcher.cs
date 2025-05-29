@@ -10,6 +10,13 @@ public class SpoonacularRecipeFetcher : MonoBehaviour
     [SerializeField] private string apiKey = "YOUR_SPOONACULAR_API_KEY";
     [SerializeField] private SazonXRUIController uiController;
 
+    private void Start()
+    {
+        if (uiController == null)
+        {
+            uiController = FindObjectOfType<SazonXRUIController>();
+        }
+    }
     public async void GetRecipesFromIngredients(List<string> ingredients)
     {
         if (ingredients == null || ingredients.Count == 0)
@@ -37,7 +44,17 @@ public class SpoonacularRecipeFetcher : MonoBehaviour
                 List<RecipeResult> recipes = JsonConvert.DeserializeObject<List<RecipeResult>>(json);
 
                 Debug.Log($"Received {recipes.Count} recipes.");
-                uiController.DisplayRecipes(recipes);
+
+                if (uiController == null)
+                {
+                    Debug.LogError("uiController is still null!");
+                }
+                else
+                {
+                    Debug.Log("Calling DisplayRecipes...");
+                    uiController.DisplayRecipes(recipes);
+                    Debug.Log("DisplayRecipes call completed.");
+                }
 
             }
             catch (Exception ex)
