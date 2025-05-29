@@ -1,7 +1,5 @@
 {
   "dependencies": {
-    "com.cdm.figma": "https://github.com/cdmvision/unity-figma-importer.git#1.9.0",
-    "com.cdm.figma.ui": "https://github.com/cdmvision/unity-figma-importer.git#1.9.0-ugui",
     "com.meta.xr.sdk.all": "76.0.0",
     "com.meta.xr.sdk.core": "76.0.0",
     "com.meta.xr.sdk.voice": "76.0.0",
